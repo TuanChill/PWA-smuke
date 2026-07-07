@@ -1,0 +1,16 @@
+{
+  "name": "Smuke.app",
+  "short_name": "Smuke",
+  "description": "Personal AI-curated news intelligence.",
+  "start_url": "/feed",
+  "display": "standalone",
+  "background_color": "#f7f4ee",
+  "theme_color": "#315a4f",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.data/
+.next/
+node_modules/
+tsconfig.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
