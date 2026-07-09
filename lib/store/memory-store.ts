@@ -1,5 +1,7 @@
 import { defaultConsents, demoUser, seedArticles, seedPreferences } from "@/lib/store/seed";
 import type { Article, ConsentSettings, FeedCard, InteractionType, PreferenceNode } from "@/lib/types";
+import { applyExplicitTopic, applySourceEvent, applyTopicEvent, deriveEventTopics, type UserEvent, type UserSourceScore, type UserTopicScore } from "@/lib/preferences/scoring";
+import { buildUserMemorySnapshot, type UserMemorySnapshot } from "@/lib/preferences/user-profile-builder";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -39,6 +41,10 @@ type StoreState = {
   comments: CommentEvent[];
   drafts: Draft[];
   feedQueue: FeedCard[];
+  userEvents: UserEvent[];
+  topicScores: UserTopicScore[];
+  sourceScores: UserSourceScore[];
+  memorySnapshot: UserMemorySnapshot;
 };
 
 const storePath = path.join(process.cwd(), ".data", "smuke-local-store.json");
@@ -51,7 +57,16 @@ const defaultState: StoreState = {
   interactions: [] as InteractionEvent[],
   comments: [] as CommentEvent[],
   drafts: [] as Draft[],
-  feedQueue: [] as FeedCard[]
+  feedQueue: [] as FeedCard[],
+  userEvents: [] as UserEvent[],
+  topicScores: [] as UserTopicScore[],
+  sourceScores: [] as UserSourceScore[],
+  memorySnapshot: buildUserMemorySnapshot({
+    userId: demoUser.id,
+    topicScores: [],
+    sourceScores: [],
+    consents: defaultConsents
+  })
 };
 
 let state = loadState();
@@ -132,6 +147,47 @@ export const memoryStore = {
     persistState();
     return row;
   },
+  addUserEvent(event: Omit<UserEvent, "id" | "createdAt">) {
+    refreshState();
+    const row: UserEvent = { ...event, id: `event_${state.userEvents.length + 1}`, createdAt: new Date().toISOString() };
+    state.userEvents.push(row);
+    applyScoresFromEvent(row);
+    rebuildMemorySnapshot();
+    persistState();
+    return row;
+  },
+  listUserEvents() {
+    refreshState();
+    return state.userEvents;
+  },
+  listTopicScores() {
+    refreshState();
+    return state.topicScores;
+  },
+  listSourceScores() {
+    refreshState();
+    return state.sourceScores;
+  },
+  getMemorySnapshot() {
+    refreshState();
+    state.memorySnapshot = buildUserMemorySnapshot({
+      userId: state.user.id,
+      topicScores: state.topicScores,
+      sourceScores: state.sourceScores,
+      consents: state.consents
+    });
+    persistState();
+    return state.memorySnapshot;
+  },
+  updateExplicitTopicPreference(topic: string, action: "boost" | "reduce" | "mute" | "clear") {
+    refreshState();
+    const existing = state.topicScores.find((score) => score.topic.toLowerCase() === topic.toLowerCase());
+    const next = applyExplicitTopic(existing, state.user.id, topic, action);
+    upsertTopicScore(next);
+    rebuildMemorySnapshot();
+    persistState();
+    return next;
+  },
   listPreferences() {
     refreshState();
     return state.preferences;
@@ -178,9 +234,49 @@ export const memoryStore = {
       user: state.user,
       consents: state.consents,
       preferences: state.preferences,
+      memorySnapshot: state.memorySnapshot,
+      topicScores: state.topicScores,
+      sourceScores: state.sourceScores,
+      userEvents: state.userEvents,
       interactions: state.interactions,
       comments: state.comments,
       drafts: state.drafts
     };
   }
 };
+
+function applyScoresFromEvent(event: UserEvent) {
+  const article = event.entityType === "article" && event.entityId ? state.articles.find((item) => item.id === event.entityId) : undefined;
+  for (const topic of deriveEventTopics(event.topics, article)) {
+    const existing = state.topicScores.find((score) => score.topic.toLowerCase() === topic.toLowerCase());
+    upsertTopicScore(applyTopicEvent(existing, event, topic));
+  }
+
+  const nextSource = applySourceEvent(
+    state.sourceScores.find((score) => score.sourceId === (event.sourceId ?? article?.source.name)),
+    event,
+    article
+  );
+  if (nextSource) upsertSourceScore(nextSource);
+}
+
+function upsertTopicScore(score: UserTopicScore) {
+  const index = state.topicScores.findIndex((item) => item.topic.toLowerCase() === score.topic.toLowerCase());
+  if (index >= 0) state.topicScores[index] = score;
+  else state.topicScores.push(score);
+}
+
+function upsertSourceScore(score: UserSourceScore) {
+  const index = state.sourceScores.findIndex((item) => item.sourceId === score.sourceId);
+  if (index >= 0) state.sourceScores[index] = score;
+  else state.sourceScores.push(score);
+}
+
+function rebuildMemorySnapshot() {
+  state.memorySnapshot = buildUserMemorySnapshot({
+    userId: state.user.id,
+    topicScores: state.topicScores,
+    sourceScores: state.sourceScores,
+    consents: state.consents
+  });
+}

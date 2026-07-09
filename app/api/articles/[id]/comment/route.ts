@@ -19,6 +19,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const ai = getAiProvider();
   const sentiment = gateSensitiveSentiment(await ai.extractUserSentiment({ text: body.text, article }), memoryStore.getConsents());
 
+  memoryStore.addUserEvent({
+    userId: memoryStore.getUser().id,
+    sessionId: "session_demo",
+    eventType: sentiment.stance === "negative" ? "comment_negative" : "comment_positive",
+    entityType: "comment",
+    entityId: comment.id,
+    topics: Array.from(new Set([...article.classification.topicTags, ...sentiment.topics])),
+    sourceId: article.source.name,
+    value: sentiment.stance === "negative" ? -1 : 1,
+    metadata: {
+      articleId: id,
+      sentiment,
+      capturedVia: "article_comment_route"
+    }
+  });
+
   updateGraphFromInteraction(article, "comment");
 
   return NextResponse.json({ ok: true, comment, sentiment });

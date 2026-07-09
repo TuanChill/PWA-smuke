@@ -22,12 +22,15 @@ News API/RSS/mock source
 -> ranking engine
 -> cached feed queue
 -> swipe feed
--> interaction/comment events
--> preference graph update
+-> raw user events
+-> short/medium/long preference scores
+-> user memory snapshot
+-> ranking/ad/search serving layer
 -> feed refresh
 ```
 
 Feed interactions are optimistic: the UI advances immediately and backend graph/ranking work runs after the interaction write.
+Core data principle: raw events are the source of truth, user memory snapshots are the serving layer, ranking consumes scores, and LLMs read structured memory rather than raw logs by default.
 
 ## Local Setup
 
@@ -59,13 +62,17 @@ Set `SMUKE_AI_PROVIDER=minimax` only when `MINIMAX_API_KEY` is available in the 
 
 ## Supabase Setup
 
-The initial SQL migration is in `supabase/migrations/001_smuke_core.sql`.
+The SQL migrations are in:
+
+- `supabase/migrations/001_smuke_core.sql`
+- `supabase/migrations/002_user_intelligence_layer.sql`
 
 ```bash
 supabase db reset
 ```
 
-The migration creates users, consents, sources, raw items, articles, classifications, embeddings, feed queues, preference nodes, interactions, comments, commentary drafts, and RLS policies for user-owned data.
+The first migration creates users, consents, sources, raw items, articles, classifications, embeddings, feed queues, preference nodes, interactions, comments, commentary drafts, and RLS policies for user-owned data.
+The second migration adds content cache tables, raw event logs, topic/source/sentiment scores, structured memory snapshots, ad campaigns, ad events, and RLS policies.
 
 ## Seed and Worker Commands
 
@@ -82,6 +89,21 @@ The current MVP uses an in-memory store for local development. Production wiring
 npm run typecheck
 npm test
 ```
+
+## Data Intelligence APIs
+
+```txt
+POST /api/events
+GET  /api/events
+GET  /api/user-memory
+POST /api/user-memory/preferences
+GET  /api/search?q=bitcoin+etf
+GET  /api/ads
+```
+
+Events are validated with Zod and weighted before preference updates. The local demo writes them to `.data/smuke-local-store.json`; production should persist the same model into Supabase using `supabase/migrations/002_user_intelligence_layer.sql`.
+
+The LLM-readable memory contract is available through `/api/user-memory`. It returns stable preferences, short-term intent, negative preferences, source affinity, and an explanation summary without exposing unlimited raw behaviour logs.
 
 ## MiniMax AI Mode
 
