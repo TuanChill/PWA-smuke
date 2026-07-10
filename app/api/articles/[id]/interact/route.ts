@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { updateGraphFromInteraction, interactionWeights } from "@/lib/graph/update";
+import { interactionWeights } from "@/lib/graph/update";
 import { refreshFeedQueue } from "@/lib/ranking/ranker";
 import { memoryStore } from "@/lib/store/memory-store";
 import { interactionTypeSchema } from "@/lib/types";
@@ -39,7 +39,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
   });
 
-  updateGraphFromInteraction(article, body.type);
   refreshFeedQueue();
 
   return NextResponse.json({ ok: true, event });

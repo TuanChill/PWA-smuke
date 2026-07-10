@@ -129,10 +129,11 @@ Do not store full article bodies unless the license explicitly allows it. Store 
 Run live ingestion from `/admin` or:
 
 ```bash
-curl -X POST -F mode=live http://localhost:3010/api/admin/ingest
+curl -X POST -H "x-admin-token: $ADMIN_INGEST_TOKEN" -F mode=live http://localhost:3010/api/admin/ingest
 ```
 
 The live path combines GDELT discovery and public RSS feeds, then applies the approved-source allowlist before AI processing. If a publisher feed blocks automated access or changes format, the fetch is skipped and the rest of the source set continues.
+In production, `ADMIN_INGEST_TOKEN` must be set and supplied as `x-admin-token`; public users should never trigger external ingestion directly.
 
 ## Privacy and Consent
 
@@ -145,6 +146,8 @@ Consent flags are represented in `lib/types.ts` and seeded in `lib/store/seed.ts
 - Move in-memory repositories to Supabase-backed repositories before multi-user production.
 - Add Redis/BullMQ workers for ingestion, graph updates, and feed refresh jobs.
 - Add Sentry DSN and route-level rate limiting.
+
+See `docs/production-scale-plan.md` for the Ponytail production review, overcomplication cuts, and the path from 1,000 concurrent users to 100k active users.
 
 ## Known Limitations
 

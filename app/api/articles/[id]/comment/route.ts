@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
-import { updateGraphFromInteraction } from "@/lib/graph/update";
 import { gateSensitiveSentiment } from "@/lib/privacy/consent";
 import { memoryStore } from "@/lib/store/memory-store";
 
@@ -34,8 +33,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       capturedVia: "article_comment_route"
     }
   });
-
-  updateGraphFromInteraction(article, "comment");
 
   return NextResponse.json({ ok: true, comment, sentiment });
 }
