@@ -1,14 +1,18 @@
 import { AppNav } from "@/components/AppNav";
 import { FeedClient } from "@/components/FeedClient";
-import { refreshFeedQueue } from "@/lib/ranking/ranker";
-import { memoryStore } from "@/lib/store/memory-store";
+import { fetchFeedCards, fetchFeedTopics } from "@/lib/feed/feed-api";
 
-export default function FeedPage() {
-  const cards = memoryStore.getFeedQueue().length > 0 ? memoryStore.getFeedQueue() : refreshFeedQueue();
+export const revalidate = 30;
+
+export default async function FeedPage() {
+  const [{ cards }, topics] = await Promise.all([
+    fetchFeedCards({ page: 1, limit: 15, sort: "for-you" }),
+    fetchFeedTopics(),
+  ]);
 
   return (
-    <main className="min-h-screen bg-paper">
-      <FeedClient initialCards={cards} />
+    <main className="h-[100dvh] overflow-hidden bg-paper">
+      <FeedClient initialCards={cards} initialTopics={topics} />
       <AppNav />
     </main>
   );

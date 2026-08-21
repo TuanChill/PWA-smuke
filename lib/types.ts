@@ -53,6 +53,7 @@ export const articleSchema = z.object({
     keywords: z.array(z.string()),
     semanticHash: z.string()
   }),
+  imageUrl: z.string().optional(),
   metadata: z.object({
     publishedAt: z.string(),
     ingestedAt: z.string(),

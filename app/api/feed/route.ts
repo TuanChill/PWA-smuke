@@ -1,8 +1,25 @@
-import { NextResponse } from "next/server";
-import { refreshFeedQueue } from "@/lib/ranking/ranker";
-import { memoryStore } from "@/lib/store/memory-store";
+import { NextRequest, NextResponse } from "next/server";
+import { fetchFeedCards } from "@/lib/feed/feed-api";
 
-export async function GET() {
-  const cards = memoryStore.getFeedQueue().length > 0 ? memoryStore.getFeedQueue() : refreshFeedQueue();
-  return NextResponse.json({ cards });
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const topicSlug = searchParams.get("topicSlug") || undefined;
+  const sort = (searchParams.get("sort") as any) || "for-you";
+  const page = Number(searchParams.get("page") ?? 1) || 1;
+  const limit = Number(searchParams.get("limit") ?? 15) || 15;
+
+  const authHeader = req.headers.get("authorization");
+  const token =
+    (authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null) ||
+    req.cookies.get("smuke_token")?.value;
+
+  const result = await fetchFeedCards({
+    page,
+    limit,
+    topicSlug,
+    sort,
+    token: token || undefined,
+  });
+
+  return NextResponse.json(result);
 }

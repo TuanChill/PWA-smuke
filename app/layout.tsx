@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import NextTopLoader from "nextjs-toploader";
+import { AuthProvider } from "@/lib/auth/auth-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +19,21 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <NextTopLoader
+          color="#315a4f"
+          initialPosition={0.08}
+          crawlSpeed={200}
+          height={3}
+          crawl={true}
+          showSpinner={false}
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #315a4f,0 0 5px #315a4f"
+          zIndex={1600}
+        />
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
