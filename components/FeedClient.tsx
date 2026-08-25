@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState, useCallback, useRef, forwardRef, useImper
 import { motion, useMotionValue, useTransform, animate, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import type { FeedCard, InteractionType } from "@/lib/types";
-import type { FeedTopic } from "@/lib/feed/feed-api";
+import { feedService, type FeedTopic } from "@/lib/services/feed.service";
 import { useAuth } from "@/lib/auth/auth-context";
+import { CommentDrawer } from "./CommentDrawer";
 
 type Props = {
   initialCards: FeedCard[];
@@ -93,20 +94,8 @@ function getTopicIcon(slug: string) {
   }
 }
 
-async function sendInteraction(articleId: string, type: InteractionType) {
-  try {
-    await fetch(`/api/articles/${articleId}/interact`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type }),
-    });
-  } catch {
-    // Ignore network error in background
-  }
-}
-
 export function FeedClient({ initialCards, initialTopics }: Props) {
-  const { user, token, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [cards, setCards] = useState<FeedCard[]>(initialCards);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -118,6 +107,7 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [savedArticles, setSavedArticles] = useState<Set<string>>(new Set());
+  const [isCommentDrawerOpen, setIsCommentDrawerOpen] = useState(false);
 
   const cardRef = useRef<{ flyLeft: () => void; flyRight: () => void } | null>(null);
 
@@ -127,11 +117,11 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
   // Load topics if not provided
   useEffect(() => {
     if (!initialTopics || initialTopics.length === 0) {
-      fetch("/api/feed/topics")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.topics && data.topics.length > 0) {
-            const list = [{ slug: "all", name: "All Topics" }, ...data.topics.filter((t: FeedTopic) => t.slug !== "all")];
+      feedService
+        .getTopics()
+        .then((topicList) => {
+          if (topicList && topicList.length > 0) {
+            const list = [{ slug: "all", name: "All Topics" }, ...topicList.filter((t) => t.slug !== "all")];
             setTopics(list);
           }
         })
@@ -144,21 +134,13 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
     async (topicSlug: string, sort: "for-you" | "trending" | "latest") => {
       setIsLoading(true);
       try {
-        const url = new URL("/api/feed", window.location.origin);
-        url.searchParams.set("page", "1");
-        url.searchParams.set("limit", "15");
-        url.searchParams.set("sort", sort);
-        if (topicSlug !== "all") {
-          url.searchParams.set("topicSlug", topicSlug);
-        }
+        const data = await feedService.getCards({
+          page: 1,
+          limit: 15,
+          sort,
+          topicSlug: topicSlug !== "all" ? topicSlug : undefined,
+        });
 
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-
-        const res = await fetch(url.toString(), { headers });
-        const data = await res.json();
         if (data && Array.isArray(data.cards)) {
           setCards(data.cards);
           setActiveIndex(0);
@@ -171,19 +153,17 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
         setIsLoading(false);
       }
     },
-    [token]
+    []
   );
 
   // Handle topic change
   const handleTopicChange = (slug: string) => {
-    if (slug === selectedTopic && !isLoading) return;
     setSelectedTopic(slug);
     loadFeed(slug, selectedSort);
   };
 
   // Handle sort change
   const handleSortChange = (sort: "for-you" | "trending" | "latest") => {
-    if (sort === selectedSort && !isLoading) return;
     setSelectedSort(sort);
     loadFeed(selectedTopic, sort);
   };
@@ -194,21 +174,14 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
     if (remainingCards <= 3 && hasMore && !isFetchingMore && !isLoading && cards.length > 0) {
       setIsFetchingMore(true);
       const nextPage = page + 1;
-      const url = new URL("/api/feed", window.location.origin);
-      url.searchParams.set("page", String(nextPage));
-      url.searchParams.set("limit", "15");
-      url.searchParams.set("sort", selectedSort);
-      if (selectedTopic !== "all") {
-        url.searchParams.set("topicSlug", selectedTopic);
-      }
 
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      fetch(url.toString(), { headers })
-        .then((res) => res.json())
+      feedService
+        .getCards({
+          page: nextPage,
+          limit: 15,
+          sort: selectedSort,
+          topicSlug: selectedTopic !== "all" ? selectedTopic : undefined,
+        })
         .then((data) => {
           if (data && Array.isArray(data.cards) && data.cards.length > 0) {
             setCards((prev) => [...prev, ...data.cards]);
@@ -221,7 +194,7 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
         .catch(() => undefined)
         .finally(() => setIsFetchingMore(false));
     }
-  }, [activeIndex, cards.length, hasMore, isFetchingMore, isLoading, page, selectedSort, selectedTopic, token]);
+  }, [activeIndex, cards.length, hasMore, isFetchingMore, isLoading, page, selectedSort, selectedTopic]);
 
   const commit = useCallback(
     (type: InteractionType) => {
@@ -233,14 +206,16 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
           return next;
         });
       }
+      setIsCommentDrawerOpen(false);
       setActiveIndex((value) => value + 1);
-      if (current) void sendInteraction(current.id, type);
+      if (current) void feedService.sendInteraction(current.id, type);
     },
     [cards, activeIndex]
   );
 
   const handleUndo = useCallback(() => {
     if (activeIndex > 0) {
+      setIsCommentDrawerOpen(false);
       setActiveIndex((prev) => prev - 1);
     }
   }, [activeIndex]);
@@ -447,6 +422,20 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
               </svg>
             </button>
 
+            {/* Comment & Draft Button */}
+            <button
+              type="button"
+              onClick={() => setIsCommentDrawerOpen(true)}
+              aria-label="Comment and draft social post"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-indigo-600 shadow-md ring-1 ring-ink/5 hover:bg-indigo-50 hover:scale-105 active:scale-95 transition"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <path d="M12 7v6" />
+                <path d="M9 10h6" />
+              </svg>
+            </button>
+
             {/* Save / Bookmark Button */}
             <button
               type="button"
@@ -477,6 +466,13 @@ export function FeedClient({ initialCards, initialTopics }: Props) {
           </div>
         )}
       </div>
+
+      {/* In-Deck Comment & Social Draft Drawer */}
+      <CommentDrawer
+        isOpen={isCommentDrawerOpen}
+        onClose={() => setIsCommentDrawerOpen(false)}
+        card={active || null}
+      />
     </section>
   );
 }

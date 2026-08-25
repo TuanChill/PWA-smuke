@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { memoryStore } from "@/lib/store/memory-store";
-
-function getBackendUrl(): string {
-  return (
-    process.env.SMUKE_BACKEND_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:8080/api/v1"
-  );
-}
+import { getAuthenticatedBackendClient } from "@/lib/api/axios-client";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -18,13 +10,8 @@ export async function POST(req: NextRequest) {
 
   if (token) {
     try {
-      await fetch(`${getBackendUrl()}/users/preferences`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const backendClient = getAuthenticatedBackendClient(token);
+      await backendClient.delete("/users/preferences");
     } catch (err) {
       console.warn("Failed to clear backend preferences:", err);
     }

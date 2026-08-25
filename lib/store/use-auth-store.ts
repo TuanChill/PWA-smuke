@@ -2,6 +2,14 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { getBackendUrl } from "@/lib/api/axios-client";
+import {
+  onboardingService,
+  type UserOnboardingData,
+  type SubmitOnboardingPayload,
+} from "@/lib/services/onboarding.service";
+
+export type { UserOnboardingData, SubmitOnboardingPayload };
 
 export interface UserProfile {
   id: string;
@@ -11,40 +19,8 @@ export interface UserProfile {
   role?: string;
 }
 
-export interface UserOnboardingData {
-  id?: string;
-  selectedTopics: string[];
-  objectives: string[];
-  role?: string;
-  profession?: string;
-  company?: string;
-  consents: Record<string, boolean>;
-  completed: boolean;
-  completedAt?: string;
-}
-
-export interface SubmitOnboardingPayload {
-  topics: string[];
-  objectives: string[];
-  role?: string;
-  profession?: string;
-  company?: string;
-  consents?: Record<string, boolean>;
-}
-
 export interface RouterNavigator {
   push: (href: any, options?: any) => void;
-}
-
-function getBackendUrl(): string {
-  if (typeof window !== "undefined") {
-    return (
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:8080/api/v1"
-    );
-  }
-  return process.env.SMUKE_BACKEND_URL || "http://localhost:8080/api/v1";
 }
 
 function syncCookie(token: string | null) {
@@ -87,7 +63,6 @@ export const useAuthStore = create<AuthState>()(
       setSession: (token: string, user: UserProfile) => {
         syncCookie(token);
         set({ token, user });
-        get().fetchOnboarding(token);
       },
 
       logout: () => {
@@ -108,17 +83,10 @@ export const useAuthStore = create<AuthState>()(
 
         set({ isLoading: true });
         try {
-          const res = await fetch(`${getBackendUrl()}/users/onboarding`, {
-            headers: {
-              Authorization: `Bearer ${activeToken}`,
-            },
-          });
-          if (res.ok) {
-            const json = await res.json();
-            if (json.success && json.data) {
-              set({ onboarding: json.data });
-              return json.data;
-            }
+          const data = await onboardingService.getOnboarding(activeToken);
+          if (data) {
+            set({ onboarding: data });
+            return data;
           }
         } catch (err) {
           console.warn("Failed to fetch user onboarding:", err);
@@ -134,20 +102,11 @@ export const useAuthStore = create<AuthState>()(
 
         set({ isLoading: true });
         try {
-          const res = await fetch(`${getBackendUrl()}/users/onboarding`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${activeToken}`,
-            },
-            body: JSON.stringify(payload),
-          });
-          if (res.ok) {
-            const json = await res.json();
-            if (json.success && json.data) {
-              set({ onboarding: json.data });
-              return true;
-            }
+          const success = await onboardingService.submitOnboarding(payload, activeToken);
+          if (success) {
+            const data = await onboardingService.getOnboarding(activeToken);
+            if (data) set({ onboarding: data });
+            return true;
           }
         } catch (err) {
           console.error("Error submitting onboarding:", err);

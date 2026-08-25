@@ -23,6 +23,8 @@ export type CommentaryInput = {
   article: Article;
   userComment?: string;
   writingStyle?: string;
+  targetPlatform?: "linkedin" | "twitter_x" | "executive_memo";
+  perspectiveAngle?: string;
 };
 
 export interface AiProvider {

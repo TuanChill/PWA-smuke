@@ -1,5 +1,5 @@
 import { defaultConsents, demoUser, seedArticles, seedPreferences } from "@/lib/store/seed";
-import type { Article, ConsentSettings, FeedCard, InteractionType, PreferenceNode } from "@/lib/types";
+import type { Article, ConsentSettings, FeedCard, InteractionType, PreferenceNode, SocialAccount, SocialPlatform } from "@/lib/types";
 import { applyExplicitTopic, applySourceEvent, applyTopicEvent, deriveEventTopics, type UserEvent, type UserSourceScore, type UserTopicScore } from "@/lib/preferences/scoring";
 import { buildUserMemorySnapshot, type UserMemorySnapshot } from "@/lib/preferences/user-profile-builder";
 import fs from "node:fs";
@@ -22,10 +22,15 @@ type CommentEvent = {
   createdAt: string;
 };
 
-type Draft = {
+export type Draft = {
   id: string;
   userId: string;
   articleId: string;
+  articleTitle?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  userComment?: string;
+  platform?: "linkedin" | "twitter_x" | "executive_memo";
   draft: string;
   rationale: string;
   status: "draft" | "approved" | "rejected" | "posted";
@@ -40,6 +45,7 @@ type StoreState = {
   interactions: InteractionEvent[];
   comments: CommentEvent[];
   drafts: Draft[];
+  socialAccounts: SocialAccount[];
   feedQueue: FeedCard[];
   userEvents: UserEvent[];
   topicScores: UserTopicScore[];
@@ -47,7 +53,9 @@ type StoreState = {
   memorySnapshot: UserMemorySnapshot;
 };
 
-const storePath = path.join(process.cwd(), ".data", "smuke-local-store.json");
+const isTestEnv = process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
+const workerSuffix = isTestEnv && process.env.VITEST_POOL_ID ? `-${process.env.VITEST_POOL_ID}` : "";
+const storePath = path.join(process.cwd(), ".data", `smuke-local-store${workerSuffix}.json`);
 
 const defaultState: StoreState = {
   user: demoUser,
@@ -57,6 +65,7 @@ const defaultState: StoreState = {
   interactions: [] as InteractionEvent[],
   comments: [] as CommentEvent[],
   drafts: [] as Draft[],
+  socialAccounts: [] as SocialAccount[],
   feedQueue: [] as FeedCard[],
   userEvents: [] as UserEvent[],
   topicScores: [] as UserTopicScore[],
@@ -219,14 +228,71 @@ export const memoryStore = {
   },
   addDraft(event: Omit<Draft, "id" | "createdAt" | "status">) {
     refreshState();
-    const row = { ...event, id: `draft_${state.drafts.length + 1}`, status: "draft" as const, createdAt: new Date().toISOString() };
+    const row = {
+      ...event,
+      id: `draft_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      status: "draft" as const,
+      createdAt: new Date().toISOString()
+    };
     state.drafts.unshift(row);
     persistState();
     return row;
   },
   listDrafts() {
     refreshState();
-    return state.drafts;
+    return [...(state.drafts || [])];
+  },
+  deleteDraft(id: string) {
+    refreshState();
+    state.drafts = state.drafts.filter((d) => d.id !== id);
+    persistState();
+    return true;
+  },
+  updateDraftStatus(id: string, status: Draft["status"]) {
+    refreshState();
+    const draft = state.drafts.find((d) => d.id === id);
+    if (draft) {
+      draft.status = status;
+      persistState();
+    }
+    return draft;
+  },
+  listSocialAccounts() {
+    refreshState();
+    return [...(state.socialAccounts || [])];
+  },
+  clearSocialAccounts() {
+    refreshState();
+    state.socialAccounts = [];
+    persistState();
+    return true;
+  },
+  upsertSocialAccount(acc: SocialAccount) {
+    refreshState();
+    if (!state.socialAccounts) state.socialAccounts = [];
+    const idx = state.socialAccounts.findIndex((a) => a.id === acc.id);
+    if (idx >= 0) {
+      state.socialAccounts[idx] = acc;
+    } else {
+      state.socialAccounts.push(acc);
+    }
+    persistState();
+    return acc;
+  },
+  deleteSocialAccount(id: string) {
+    refreshState();
+    if (!state.socialAccounts) state.socialAccounts = [];
+    state.socialAccounts = state.socialAccounts.filter((a) => a.id !== id);
+    persistState();
+    return true;
+  },
+  getSocialAccountsByPlatform(platform: SocialPlatform) {
+    refreshState();
+    return (state.socialAccounts || []).filter((a) => a.platform === platform && a.status === "active");
+  },
+  getSocialAccountByPlatform(platform: SocialPlatform) {
+    refreshState();
+    return (state.socialAccounts || []).find((a) => a.platform === platform && a.status === "active");
   },
   exportUserData() {
     refreshState();
@@ -240,7 +306,8 @@ export const memoryStore = {
       userEvents: state.userEvents,
       interactions: state.interactions,
       comments: state.comments,
-      drafts: state.drafts
+      drafts: state.drafts,
+      socialAccounts: state.socialAccounts || []
     };
   }
 };

@@ -5,15 +5,7 @@ import { refreshFeedQueue } from "@/lib/ranking/ranker";
 import { memoryStore } from "@/lib/store/memory-store";
 import { interactionTypeSchema } from "@/lib/types";
 import type { UserEventType } from "@/lib/tracking/event-types";
-
-function getBackendUrl(): string {
-  return (
-    process.env.SMUKE_BACKEND_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:8080/api/v1"
-  );
-}
+import { getAuthenticatedBackendClient } from "@/lib/api/axios-client";
 
 const interactSchema = z.object({
   type: interactionTypeSchema,
@@ -39,22 +31,18 @@ export async function POST(
     request.cookies.get("smuke_token")?.value;
 
   if (token) {
-    fetch(`${getBackendUrl()}/users/interactions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const backendClient = getAuthenticatedBackendClient(token);
+    backendClient
+      .post("/users/interactions", {
         type: body.type,
         contentItemId: id,
         topics,
         sourceName,
         weight,
-      }),
-    }).catch((err) => {
-      console.warn("Failed to forward interaction to backend:", err);
-    });
+      })
+      .catch((err) => {
+        console.warn("Failed to forward interaction to backend:", err);
+      });
   }
 
   // 2. Update local BFF store for optimistic feed refresh

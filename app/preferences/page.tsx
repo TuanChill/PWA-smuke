@@ -1,75 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
+import { PreferencesSkeleton } from "@/components/PreferencesSkeleton";
+import { SocialAccountsCard } from "@/components/SocialAccountsCard";
 import { useAuth } from "@/lib/auth/auth-context";
+import { usePreferencesQuery } from "@/lib/hooks/queries/use-preferences-queries";
 import { seedPreferences } from "@/lib/store/seed";
-import type { PreferenceNode } from "@/lib/types";
 
 export default function PreferencesPage() {
-  const { user, onboarding, isAuthenticated, token, loginWithGoogle, logout } = useAuth();
-  const [preferences, setPreferences] = useState<PreferenceNode[]>(seedPreferences);
-  const [isLoading, setIsLoading] = useState(false);
+  const { user, onboarding, isAuthenticated, token, isLoading: isAuthLoading, isHydrated, loginWithGoogle, logout } = useAuth();
+  const { data: prefData, isLoading: isFetchingPrefs } = usePreferencesQuery();
+  const preferences = prefData?.preferences && prefData.preferences.length > 0 ? prefData.preferences : seedPreferences;
 
-  useEffect(() => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    setIsLoading(true);
-    fetch("/api/preferences", { headers })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.preferences && Array.isArray(data.preferences) && data.preferences.length > 0) {
-          setPreferences(data.preferences);
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => setIsLoading(false));
-  }, [token]);
+  const showSkeleton = !isHydrated || (isAuthLoading && isFetchingPrefs);
 
   return (
     <main className="safe-shell min-h-screen bg-paper px-4 pb-28 pt-6">
       <section className="mx-auto max-w-3xl space-y-6">
-        {/* User Profile Card */}
-        <div className="rounded-3xl bg-white p-6 shadow-panel">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              {user?.picture ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={user.picture}
-                  alt={user.name || "User Avatar"}
-                  className="h-14 w-14 rounded-full object-cover ring-2 ring-moss/30"
-                />
-              ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-fog font-bold text-moss text-lg">
-                  {user?.name ? user.name.slice(0, 2).toUpperCase() : "G"}
+        {showSkeleton ? (
+          <PreferencesSkeleton />
+        ) : (
+          <>
+            {/* User Profile Card */}
+            <div className="rounded-3xl bg-white p-6 shadow-panel">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                  {user?.picture ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.picture}
+                      alt={user.name || "User Avatar"}
+                      className="h-14 w-14 rounded-full object-cover ring-2 ring-moss/30"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-fog font-bold text-moss text-lg">
+                      {user?.name ? user.name.slice(0, 2).toUpperCase() : "G"}
+                    </div>
+                  )}
+                  <div>
+                    <h1 className="text-xl font-bold text-ink sm:text-2xl">
+                      {user?.name || "Guest Operator"}
+                    </h1>
+                    <p className="text-xs text-ink/60">{user?.email || "No account linked"}</p>
+                  </div>
                 </div>
-              )}
-              <div>
-                <h1 className="text-xl font-bold text-ink sm:text-2xl">
-                  {user?.name || "Guest Operator"}
-                </h1>
-                <p className="text-xs text-ink/60">{user?.email || "No account linked"}</p>
+
+                {!isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={loginWithGoogle}
+                    className="self-start sm:self-center rounded-full bg-moss px-5 py-2.5 text-xs font-semibold text-white hover:bg-moss/90 transition shadow-sm"
+                  >
+                    Sign In with Google
+                  </button>
+                )}
               </div>
             </div>
 
-            {!isAuthenticated && (
-              <button
-                type="button"
-                onClick={loginWithGoogle}
-                className="self-start sm:self-center rounded-full bg-moss px-5 py-2.5 text-xs font-semibold text-white hover:bg-moss/90 transition shadow-sm"
-              >
-                Sign In with Google
-              </button>
-            )}
-          </div>
-        </div>
+            {/* Connected Social Accounts Card */}
+            <SocialAccountsCard
+              isAuthenticated={isAuthenticated}
+              token={token}
+              onLoginClick={loginWithGoogle}
+            />
 
-        {/* Onboarding Preferences */}
+            {/* Onboarding Preferences */}
         {onboarding && (
           <div className="rounded-3xl bg-white p-6 shadow-panel space-y-4">
             <div className="flex items-center justify-between">
@@ -174,6 +170,8 @@ export default function PreferencesPage() {
               Sign Out
             </button>
           </div>
+        )}
+          </>
         )}
       </section>
       <AppNav />

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import NextTopLoader from "nextjs-toploader";
 import { AuthProvider } from "@/lib/auth/auth-context";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           shadow="0 0 10px #315a4f,0 0 5px #315a4f"
           zIndex={1600}
         />
-        <AuthProvider>{children}</AuthProvider>
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

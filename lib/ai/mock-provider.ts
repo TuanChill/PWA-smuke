@@ -106,9 +106,33 @@ export const mockAiProvider: AiProvider = {
     return { intent: input.text.length > 40 ? "thought leadership development" : "preference signal", confidence: 0.82 };
   },
   async generateCommentaryDraft(input: CommentaryInput) {
+    const sourceUrl = input.article.source.canonicalUrl || input.article.source.sourceUrl;
+    const userTake = input.userComment?.trim()
+      ? input.userComment.trim()
+      : (input.perspectiveAngle ? `Key observation on ${input.perspectiveAngle}` : "Strategic perspective on market shifts.");
+    const tags = input.article.classification.topicTags
+      .slice(0, 4)
+      .map((t) => `#${t.replace(/[^a-zA-Z0-9]/g, "")}`)
+      .join(" ");
+
+    let draft = "";
+    let rationale = "";
+
+    if (input.targetPlatform === "twitter_x") {
+      draft = `💡 ${userTake}\n\nRe: ${input.article.content.title}\n\n${input.article.content.compressedIntent}\n\n🔗 Source: ${sourceUrl}\n${tags}`;
+      rationale = "Concise high-impact tweet linking user perspective with source context.";
+    } else if (input.targetPlatform === "executive_memo") {
+      draft = `📋 EXECUTIVE BRIEF: ${input.article.content.title.toUpperCase()}\n\n• Core Intelligence: ${input.article.content.summary}\n• Strategic Take: ${userTake}\n• Direction of Travel: ${input.article.content.compressedIntent}\n• Source Reference: ${sourceUrl}\n\nSector: ${input.article.classification.primaryCategory.toUpperCase()} | ${tags}`;
+      rationale = "Structured executive memo formatted with high-signal bullets and action points.";
+    } else {
+      // Default: LinkedIn format
+      draft = `${userTake}\n\n${input.article.content.title} marks a notable development in ${input.article.classification.primaryCategory}.\n\n${input.article.content.summary}\n\nThe second-order implication is what matters most: ${input.article.content.compressedIntent}\n\nWhat is your take on this direction?\n\n📖 Source: ${sourceUrl}\n\n${tags}`;
+      rationale = "Narrative-driven LinkedIn post contextualizing the user take with news facts and source attribution.";
+    }
+
     return commentaryDraftSchema.parse({
-      draft: `${input.article.content.title} is less about the headline than the direction of travel: ${input.article.content.compressedIntent} The practical question is who can move fastest while the market is still repricing the opportunity.`,
-      rationale: "Grounded in the article summary and shaped as concise strategic commentary."
+      draft,
+      rationale
     });
   },
   async updateUserWritingStyleProfile(input) {

@@ -127,3 +127,39 @@ export type ConsentSettings = z.infer<typeof consentSchema>;
 export type FeedCard = z.infer<typeof feedCardSchema>;
 export type InteractionType = z.infer<typeof interactionTypeSchema>;
 export type PreferenceNode = z.infer<typeof preferenceNodeSchema>;
+
+export const socialPlatformSchema = z.enum(["linkedin", "x", "threads"]);
+export type SocialPlatform = z.infer<typeof socialPlatformSchema>;
+
+export const socialAccountSchema = z
+  .object({
+    id: z.string(),
+    _id: z.any().optional(),
+    userId: z.string().optional(),
+    user: z.any().optional(),
+    postformeId: z.string().optional(),
+    platform: z.string(),
+    accountName: z.string().optional(),
+    username: z.string().optional(),
+    accountId: z.string().optional(),
+    accountType: z.string().optional(),
+    avatarUrl: z.string().optional(),
+    profileUrl: z.string().optional(),
+    isConnected: z.boolean().optional(),
+    connectionStatus: z.string().optional(),
+    status: z.string().default("active"),
+    disconnectReason: z.string().optional(),
+    disconnectedAt: z.any().optional(),
+    personalPrompt: z.string().optional(),
+    personalPromptUpdatedAt: z.any().optional(),
+    lastProcessedFeedId: z.string().optional(),
+    lastFeedAnalyzedAt: z.any().optional(),
+    personaCategories: z.any().optional(),
+    settings: z.any().optional(),
+    connectedAt: z.string().optional(),
+    lastUsedAt: z.any().optional(),
+    createdAt: z.string().optional(),
+    updatedAt: z.string().optional()
+  })
+  .passthrough();
+export type SocialAccount = z.infer<typeof socialAccountSchema>;

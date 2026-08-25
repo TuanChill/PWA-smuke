@@ -13,8 +13,8 @@ export function getAiProvider(): AiProvider {
 
     return new MiniMaxProvider({
       apiKey,
-      baseUrl: process.env.MINIMAX_BASE_URL ?? "https://api.minimax.chat/v1/text/chatcompletion_v2",
-      model: process.env.MINIMAX_MODEL ?? "MiniMax-Text-01"
+      baseUrl: process.env.MINIMAX_BASE_URL ?? "https://api.minimax.io/v1/chat/completions",
+      model: process.env.MINIMAX_MODEL ?? "MiniMax-M3"
     });
   }
 

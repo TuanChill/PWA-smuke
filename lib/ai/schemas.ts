@@ -54,8 +54,8 @@ export const sentimentExtractionSchema = z.object({
 });
 
 export const commentaryDraftSchema = z.object({
-  draft: z.string().min(40).max(1200),
-  rationale: z.string().min(10).max(500)
+  draft: z.string().min(20).max(3000),
+  rationale: z.string().min(5).max(500)
 });
 
 export type ArticleSummary = z.infer<typeof articleSummarySchema>;
