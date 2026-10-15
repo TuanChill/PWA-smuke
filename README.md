@@ -50,8 +50,6 @@ Use `.env.local` for local secrets. `.env*` files are ignored by git.
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080/api/v1
 ```
 
-Set `SMUKE_AI_PROVIDER=minimax` only when `MINIMAX_API_KEY` is available in the runtime environment.
-
 ## Supabase Setup
 
 The SQL migrations are in:
@@ -99,12 +97,7 @@ The LLM-readable memory contract is available through `/api/user-memory`. It ret
 
 ## MiniMax AI Mode
 
-The AI provider interface lives in `lib/ai`. Local development defaults to `mock`; production can opt into MiniMax with:
-
-```bash
-SMUKE_AI_PROVIDER=minimax
-MINIMAX_API_KEY=<provided-by-runtime>
-```
+The AI provider interface lives in `lib/ai`. Local development defaults to the `mock` provider.
 
 All AI outputs are parsed through Zod schemas before entering article, sentiment, or commentary flows.
 
