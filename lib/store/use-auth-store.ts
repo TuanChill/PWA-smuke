@@ -73,7 +73,9 @@ export const useAuthStore = create<AuthState>()(
       loginWithGoogle: () => {
         const backendUrl = getBackendUrl();
         if (typeof window !== "undefined") {
-          window.location.href = `${backendUrl}/auth/google`;
+          // BE only honours this when our origin is in its FE_AUTH_ALLOWED_ORIGINS
+          const redirectUrl = encodeURIComponent(`${window.location.origin}/auth/callback`);
+          window.location.href = `${backendUrl}/auth/google?redirect_url=${redirectUrl}`;
         }
       },
 
