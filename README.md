@@ -47,15 +47,7 @@ Open `http://localhost:3000`.
 Use `.env.local` for local secrets. `.env*` files are ignored by git.
 
 ```bash
-SMUKE_AI_PROVIDER=mock
-MINIMAX_API_KEY=
-MINIMAX_BASE_URL=https://api.minimax.chat/v1/text/chatcompletion_v2
-MINIMAX_MODEL=MiniMax-Text-01
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-REDIS_URL=
-SENTRY_DSN=
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8080/api/v1
 ```
 
 Set `SMUKE_AI_PROVIDER=minimax` only when `MINIMAX_API_KEY` is available in the runtime environment.
